@@ -1,0 +1,82 @@
+groups:
+  - name: subscription-authorizer
+    rules:
+      - alert: AuthorizerDown
+        expr: up{job="subscription-authorizer"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "Authorizer target down"
+          description: "A subscription-authorizer instance has been unreachable for 2m."
+
+      - alert: AuthorizerErrorRateHigh
+        expr: |
+          sum(rate(subscription_authorizer_errors_total[5m]))
+            / clamp_min(sum(rate(subscription_authorization_total[5m])), 1) > 0.01
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Authorizer error rate > 1%"
+          description: "Authorize handler errors exceed 1% of decisions over 5m."
+
+      - alert: AuthorizeLatencyP95High
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(subscription_authorization_duration_seconds_bucket[5m])) by (le)) > 0.1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Authorize p95 latency > 100ms"
+          description: "p95 authorize latency is above the 100ms budget for 10m."
+
+      - alert: PostgresUnreachable
+        expr: authorizer_dependency_up{dependency="postgres"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "PostgreSQL unreachable from authorizer"
+          description: "Readiness reports PostgreSQL down for 1m."
+
+      - alert: RedisUnreachable
+        expr: authorizer_dependency_up{dependency="redis"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "Redis unreachable from authorizer"
+          description: "Readiness reports Redis down for 1m — paid operations fail-closed."
+
+      - alert: QuotaReconciliationMismatch
+        expr: increase(quota_reconciliation_mismatch_total[15m]) > 0
+        for: 0m
+        labels: { severity: warning }
+        annotations:
+          summary: "Redis/Postgres quota drift detected"
+          description: "Reconciliation found {{ $value }} mismatches in the last 15m."
+
+      - alert: AbandonedReservationsExpiring
+        expr: increase(quota_reservation_expired_total[15m]) > 20
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Many reservations expiring (>10m old, never settled)"
+          description: "The expiry worker released >20 abandoned holds in 15m — app may be failing to commit/release."
+
+      - alert: QuotaDenialSpike
+        expr: |
+          sum(rate(quota_reservation_total{result="rejected"}[5m]))
+            > 3 * sum(rate(quota_reservation_total{result="rejected"}[1h] offset 1h))
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Sudden increase in quota denials"
+          description: "Quota rejections are 3x the prior baseline for 10m."
+
+      - alert: QuotaSettlementFailures
+        expr: |
+          sum(rate(quota_commit_total{outcome="not_found"}[10m]))
+            + sum(rate(quota_release_total{outcome="not_found"}[10m])) > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Commit/release settling unknown reservations"
+          description: "Settlement calls reference reservations that don't exist — investigate id propagation."

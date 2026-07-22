@@ -1,0 +1,61 @@
+# Protected API Ingress — every request is authorized by the external auth subrequest.
+# Requires ingress-nginx. IMPORTANT: no auth-cache-* annotations — reservations must run
+# on every request (spec D3).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: main-app-protected
+  namespace: app
+  annotations:
+    nginx.ingress.kubernetes.io/auth-url: "http://subscription-authorizer.auth.svc.cluster.local/internal/authorize"
+    nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-User-Id,X-Tenant-Id,X-Plan,X-Quota-Remaining,X-Quota-Reservation-Id,X-Estimated-Units"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["api.example.com"]
+      secretName: main-app-tls
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: main-app
+                port: { number: 80 }
+---
+# Public Ingress — bypass routes (no auth subrequest).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: main-app-public
+  namespace: app
+  annotations:
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Public-Route: true";
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["api.example.com"]
+      secretName: main-app-tls
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          - path: /health
+            pathType: Prefix
+            backend: { service: { name: main-app, port: { number: 80 } } }
+          - path: /login
+            pathType: Prefix
+            backend: { service: { name: main-app, port: { number: 80 } } }
+          - path: /oauth/callback
+            pathType: Prefix
+            backend: { service: { name: main-app, port: { number: 80 } } }
+          - path: /billing/plans
+            pathType: Prefix
+            backend: { service: { name: main-app, port: { number: 80 } } }
+          - path: /billing/webhooks
+            pathType: Prefix
+            backend: { service: { name: main-app, port: { number: 80 } } }

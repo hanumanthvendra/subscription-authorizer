@@ -1,0 +1,75 @@
+replicaCount: 3
+
+image:
+  repository: subscription-authorizer
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+
+service:
+  port: 80
+
+resources:
+  requests: { cpu: 100m, memory: 128Mi }
+  limits: { cpu: 500m, memory: 256Mi }
+
+# Non-secret configuration (rendered into a ConfigMap).
+config:
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  PORT: "8080"
+  RESERVATION_TTL_SECONDS: "600"
+  OVERAGE_ALLOWANCE: "0"
+  QUOTA_PERIOD_GRACE_SECONDS: "86400"
+  POINTS_PER_1K_TOKENS: "1"
+  SUBSCRIPTION_CACHE_TTL_SECONDS: "45"
+  JWT_ISSUER: "https://issuer.local/"
+  JWT_AUDIENCE: "api://main-app"
+  JWT_ALGS: "RS256"
+  WORKERS_ENABLED: "true"
+  EXPIRY_SWEEP_INTERVAL_SECONDS: "60"
+  RECONCILE_INTERVAL_SECONDS: "300"
+  RECONCILE_REPAIR: "false"
+
+# Secret handling. In production, set create=false and reference an external secret
+# (SealedSecret / External Secrets Operator) via existingSecret.
+secret:
+  create: true
+  existingSecret: ""
+  data:
+    DATABASE_URL: "postgres://authorizer:authorizer@postgres:5432/authorizer"
+    REDIS_URL: "redis://redis:6379"
+    INTERNAL_SERVICE_TOKEN_SECRET: "REPLACE_ME"
+    JWKS_JSON: "{}"
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  enabled: true
+  minAvailable: 2
+
+networkPolicy:
+  enabled: true
+  ingressControllerNamespace: ingress-nginx
+  appNamespace: app
+
+# Protected/public Ingress live in the app namespace and are optional here.
+ingress:
+  enabled: false
+
+# Prometheus Operator integration (requires the operator CRDs).
+monitoring:
+  serviceMonitor:
+    enabled: false
+    releaseLabel: prometheus
+    interval: 15s
+  prometheusRule:
+    enabled: false
+    releaseLabel: prometheus

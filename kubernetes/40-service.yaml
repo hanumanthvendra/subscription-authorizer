@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: subscription-authorizer
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: subscription-authorizer
+spec:
+  selector:
+    app.kubernetes.io/name: subscription-authorizer
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

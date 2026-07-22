@@ -1,0 +1,9 @@
+✅ {{ .Chart.Name }} {{ .Chart.Version }} installed as "{{ .Release.Name }}" in {{ .Release.Namespace }}.
+
+Service:   {{ include "sa.fullname" . }}:{{ .Values.service.port }}
+Authorize: http://{{ include "sa.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local/internal/authorize
+
+Point your NGINX Ingress auth-url at the authorize URL above (do NOT enable auth caching).
+
+Check rollout:
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "sa.fullname" . }}

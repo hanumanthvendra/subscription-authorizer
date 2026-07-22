@@ -1,0 +1,34 @@
+# DEV ONLY — ephemeral Postgres for local/kind testing. Do not use in production.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: auth
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: postgres } }
+  template:
+    metadata: { labels: { app: postgres } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_USER, value: authorizer }
+            - { name: POSTGRES_PASSWORD, value: authorizer }
+            - { name: POSTGRES_DB, value: authorizer }
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+          ports: [{ containerPort: 5432 }]
+          readinessProbe:
+            exec: { command: ["pg_isready", "-U", "authorizer"] }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+      volumes: [{ name: data, emptyDir: {} }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: postgres, namespace: auth }
+spec:
+  selector: { app: postgres }
+  ports: [{ port: 5432, targetPort: 5432 }]

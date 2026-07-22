@@ -1,0 +1,43 @@
+{{- if .Values.serviceAccount.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "sa.serviceAccountName" . }}
+  labels: {{- include "sa.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sa.fullname" . }}-config
+  labels: {{- include "sa.labels" . | nindent 4 }}
+data:
+  {{- range $k, $v := .Values.config }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+{{- if .Values.secret.create }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "sa.secretName" . }}
+  labels: {{- include "sa.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  {{- range $k, $v := .Values.secret.data }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sa.fullname" . }}
+  labels: {{- include "sa.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "sa.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http

@@ -1,0 +1,42 @@
+groups:
+  - name: subscription-authorizer
+    rules:
+      - alert: AuthorizerDown
+        expr: up{job="subscription-authorizer"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "Authorizer target down" }
+      - alert: AuthorizerErrorRateHigh
+        expr: sum(rate(subscription_authorizer_errors_total[5m])) / clamp_min(sum(rate(subscription_authorization_total[5m])), 1) > 0.01
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "Authorizer error rate > 1%" }
+      - alert: AuthorizeLatencyP95High
+        expr: histogram_quantile(0.95, sum(rate(subscription_authorization_duration_seconds_bucket[5m])) by (le)) > 0.1
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Authorize p95 latency > 100ms" }
+      - alert: PostgresUnreachable
+        expr: authorizer_dependency_up{dependency="postgres"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "PostgreSQL unreachable from authorizer" }
+      - alert: RedisUnreachable
+        expr: authorizer_dependency_up{dependency="redis"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "Redis unreachable (paid ops fail-closed)" }
+      - alert: QuotaReconciliationMismatch
+        expr: increase(quota_reconciliation_mismatch_total[15m]) > 0
+        labels: { severity: warning }
+        annotations: { summary: "Redis/Postgres quota drift detected" }
+      - alert: AbandonedReservationsExpiring
+        expr: increase(quota_reservation_expired_total[15m]) > 20
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Many holds expiring unsettled" }
+      - alert: QuotaSettlementFailures
+        expr: sum(rate(quota_commit_total{outcome="not_found"}[10m])) + sum(rate(quota_release_total{outcome="not_found"}[10m])) > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Commit/release referencing unknown reservations" }

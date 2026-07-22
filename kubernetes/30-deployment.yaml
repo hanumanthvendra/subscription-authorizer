@@ -1,0 +1,103 @@
+# Migrations run once as a Job (with a Postgres advisory lock), not per-replica.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: subscription-authorizer-migrate
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: subscription-authorizer
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: subscription-authorizer
+        job: migrate
+    spec:
+      serviceAccountName: subscription-authorizer
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: subscription-authorizer:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/database/migrate.js"]
+          envFrom:
+            - configMapRef: { name: subscription-authorizer-config }
+            - secretRef: { name: subscription-authorizer-secret }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { cpu: 250m, memory: 192Mi }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: subscription-authorizer
+  namespace: auth
+  labels:
+    app.kubernetes.io/name: subscription-authorizer
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: subscription-authorizer
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: subscription-authorizer
+    spec:
+      serviceAccountName: subscription-authorizer
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: authorizer
+          image: subscription-authorizer:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/server.js"]   # migrations handled by the Job
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef: { name: subscription-authorizer-config }
+            - secretRef: { name: subscription-authorizer-secret }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

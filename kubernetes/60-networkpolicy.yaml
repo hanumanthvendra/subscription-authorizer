@@ -1,0 +1,52 @@
+# Default-deny ingress to authorizer pods, then allow only the intended callers.
+# NOTE: requires a NetworkPolicy-enforcing CNI (Calico/Cilium). kind's default kindnet
+# does NOT enforce these — they still apply cleanly and are correct for a real cluster.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: subscription-authorizer-default-deny
+  namespace: auth
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: subscription-authorizer
+  policyTypes: ["Ingress"]
+  ingress: []
+---
+# Ingress controller may reach /internal/authorize (auth subrequest).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: subscription-authorizer-allow-ingress-controller
+  namespace: auth
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: subscription-authorizer
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - { protocol: TCP, port: 8080 }
+---
+# The main application namespace may reach the service (incl. /internal/quota/*).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: subscription-authorizer-allow-app
+  namespace: auth
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: subscription-authorizer
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: app
+      ports:
+        - { protocol: TCP, port: 8080 }
