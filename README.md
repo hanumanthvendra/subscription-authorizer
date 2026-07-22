@@ -10,6 +10,8 @@ movement is written to an immutable PostgreSQL usage ledger.
 > Design & rationale: [`docs/TECHNICAL_SPEC.md`](docs/TECHNICAL_SPEC.md).
 > Review of the original brief: [`docs/REVIEW.md`](docs/REVIEW.md).
 
+![Architecture](docs/architecture.png)
+
 ## Status — build in progress (phased)
 
 | Phase | Scope | State |

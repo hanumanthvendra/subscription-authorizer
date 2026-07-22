@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Subscription Authorizer — architecture</title>
+<style>
+  html,body{margin:0;padding:0;background:#070c16}
+  svg{display:block}
+  .t{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+</style>
+</head>
+<body>
+<svg class="t" width="1600" height="1000" viewBox="0 0 1600 1000" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="72%" cy="0%" r="90%">
+      <stop offset="0%" stop-color="#16305a"/>
+      <stop offset="45%" stop-color="#0f1a2e"/>
+      <stop offset="100%" stop-color="#0b1220"/>
+    </radialGradient>
+    <marker id="ah" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#22d3ee"/>
+    </marker>
+    <marker id="ag" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#34d399"/>
+    </marker>
+    <marker id="am" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#9db0d0"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+
+  <!-- title -->
+  <circle cx="66" cy="62" r="7" fill="#22d3ee"/>
+  <text x="86" y="60" fill="#22d3ee" font-size="22" font-weight="700" letter-spacing="3">SUBSCRIPTION AUTHORIZER</text>
+  <text x="60" y="112" fill="#eaf1ff" font-size="40" font-weight="800">Reserve → authorize → settle — atomic under concurrency</text>
+  <text x="60" y="150" fill="#9db0d0" font-size="23">NGINX external auth in front of your app · Redis-atomic quota · immutable PostgreSQL ledger</text>
+
+  <!-- ===== main lane (y 240..360) ===== -->
+  <!-- Client -->
+  <rect x="60" y="240" width="200" height="120" rx="18" fill="#142339" stroke="#2a3f68"/>
+  <text x="160" y="292" text-anchor="middle" fill="#eaf1ff" font-size="26" font-weight="700">Client</text>
+  <text x="160" y="324" text-anchor="middle" fill="#9db0d0" font-size="20">REST + Bearer JWT</text>
+
+  <!-- NGINX -->
+  <rect x="340" y="240" width="250" height="120" rx="18" fill="#142339" stroke="#2a3f68"/>
+  <text x="465" y="292" text-anchor="middle" fill="#eaf1ff" font-size="26" font-weight="700">NGINX Ingress</text>
+  <text x="465" y="324" text-anchor="middle" fill="#9db0d0" font-size="20">external auth_request</text>
+
+  <!-- Authorizer (accent) -->
+  <rect x="670" y="228" width="340" height="144" rx="20" fill="#123047" stroke="#22d3ee" stroke-width="2"/>
+  <text x="840" y="284" text-anchor="middle" fill="#eaf1ff" font-size="28" font-weight="800">Subscription Authorizer</text>
+  <text x="840" y="316" text-anchor="middle" fill="#7fe3f2" font-size="20">JWT/JWKS · plan &amp; feature · quota</text>
+  <text x="840" y="344" text-anchor="middle" fill="#9db0d0" font-size="18">Fastify · TypeScript (strict)</text>
+
+  <!-- Main App -->
+  <rect x="1180" y="240" width="240" height="120" rx="18" fill="#142339" stroke="#2a3f68"/>
+  <text x="1300" y="292" text-anchor="middle" fill="#eaf1ff" font-size="26" font-weight="700">Main Application</text>
+  <text x="1300" y="324" text-anchor="middle" fill="#9db0d0" font-size="20">does the work</text>
+
+  <!-- main arrows -->
+  <line x1="262" y1="300" x2="332" y2="300" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#ah)"/>
+  <text x="297" y="286" text-anchor="middle" fill="#9db0d0" font-size="16">request</text>
+
+  <line x1="592" y1="300" x2="662" y2="300" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#ah)"/>
+  <text x="627" y="286" text-anchor="middle" fill="#9db0d0" font-size="16">auth (GET)</text>
+
+  <line x1="1012" y1="300" x2="1172" y2="300" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#ah)"/>
+  <text x="1092" y="284" text-anchor="middle" fill="#34d399" font-size="17" font-weight="700">200 allow</text>
+  <text x="1092" y="330" text-anchor="middle" fill="#9db0d0" font-size="15">+ X-Quota-* headers</text>
+  <text x="1092" y="352" text-anchor="middle" fill="#fb7185" font-size="15">401 / 403 → deny</text>
+
+  <!-- ===== data stores (y 560..680) ===== -->
+  <rect x="560" y="560" width="290" height="120" rx="18" fill="#142339" stroke="#2a3f68"/>
+  <text x="705" y="610" text-anchor="middle" fill="#eaf1ff" font-size="25" font-weight="700">Redis</text>
+  <text x="705" y="640" text-anchor="middle" fill="#9db0d0" font-size="18">atomic quota (Lua)</text>
+  <text x="705" y="662" text-anchor="middle" fill="#9db0d0" font-size="16">limit · consumed · reserved</text>
+
+  <rect x="910" y="560" width="330" height="120" rx="18" fill="#142339" stroke="#2a3f68"/>
+  <text x="1075" y="610" text-anchor="middle" fill="#eaf1ff" font-size="25" font-weight="700">PostgreSQL</text>
+  <text x="1075" y="640" text-anchor="middle" fill="#9db0d0" font-size="18">plans · subscriptions</text>
+  <text x="1075" y="662" text-anchor="middle" fill="#9db0d0" font-size="16">immutable usage ledger</text>
+
+  <!-- authorizer -> stores -->
+  <line x1="780" y1="374" x2="720" y2="556" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#ah)"/>
+  <text x="690" y="470" text-anchor="end" fill="#7fe3f2" font-size="16">reserve /</text>
+  <text x="690" y="490" text-anchor="end" fill="#7fe3f2" font-size="16">commit / release</text>
+
+  <line x1="900" y1="374" x2="1030" y2="556" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#ah)"/>
+  <text x="1042" y="432" text-anchor="start" fill="#9db0d0" font-size="16">read subs (cached)</text>
+  <text x="1042" y="454" text-anchor="start" fill="#9db0d0" font-size="16">append ledger</text>
+
+  <!-- return path: Main App -> Authorizer (commit/release) -->
+  <path d="M1300,362 L1300,524 L960,524 L960,376" fill="none" stroke="#34d399" stroke-width="2.5" marker-end="url(#ag)"/>
+  <text x="1130" y="512" text-anchor="middle" fill="#34d399" font-size="17" font-weight="700">POST /quota/commit · /release (idempotent)</text>
+
+  <!-- ===== workers (y 800..900) ===== -->
+  <rect x="560" y="800" width="680" height="100" rx="18" fill="#101d33" stroke="#2a3f68" stroke-dasharray="6 5"/>
+  <text x="900" y="848" text-anchor="middle" fill="#eaf1ff" font-size="24" font-weight="700">Expiry + Reconciliation workers</text>
+  <text x="900" y="878" text-anchor="middle" fill="#9db0d0" font-size="18">leader-elected · release abandoned holds · PostgreSQL is the source of truth</text>
+
+  <line x1="705" y1="796" x2="705" y2="684" stroke="#9db0d0" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#am)"/>
+  <line x1="1075" y1="796" x2="1075" y2="684" stroke="#9db0d0" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#am)"/>
+  <text x="900" y="770" text-anchor="middle" fill="#9db0d0" font-size="15">reconcile Redis ↔ Postgres · repair drift</text>
+
+  <!-- footer -->
+  <text x="60" y="962" fill="#64789c" font-size="19">Venkata V — Principal DevOps &amp; Cloud Architect  ·  TypeScript · Fastify · Redis · PostgreSQL · Kubernetes · Helm · Prometheus</text>
+</svg>
+</body>
+</html>
