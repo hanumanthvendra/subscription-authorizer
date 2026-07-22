@@ -55,6 +55,16 @@ Key `quota:{tenantId}:{period}` → hash `{ limit, consumed, reserved }`,
 - `release.lua` — return an unsettled hold.
 - `expire.lua`  — worker‑driven release of abandoned holds (Postgres is source of truth).
 
+## Verify it yourself
+
+Reproducible demos (Docker + Helm required):
+
+```bash
+bash scripts/demo-atomicity.sh   # 100 concurrent reservations never oversell the limit
+bash scripts/demo-e2e.sh         # authorize -> commit against a live Postgres+Redis stack
+bash scripts/demo-validate.sh    # promtool checks the alert rules; helm lint + template
+```
+
 ## Main-app integration (Phase 4)
 
 The main application mounts the middleware, then settles usage explicitly. Commit/release
